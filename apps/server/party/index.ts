@@ -10,7 +10,7 @@ export default class WavelengthServer implements Party.Server {
 
   getInitialState(): GameState {
     return {
-      phase: "setup",
+      phase: "lobby",
       players: [],
       targetPosition: Math.floor(Math.random() * 100),
       dialPosition: 50,
@@ -22,7 +22,6 @@ export default class WavelengthServer implements Party.Server {
   }
 
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    console.log(`Connected: ${conn.id}`);
     conn.send(JSON.stringify({ type: "sync", state: this.state }));
   }
 
@@ -31,7 +30,10 @@ export default class WavelengthServer implements Party.Server {
 
     switch (msg.type) {
       case "join":
-        this.handleJoin(sender, msg.name);
+        this.handleJoin(sender, msg.name, msg.mode);
+        break;
+      case "startGame":
+        this.handleStartGame(sender);
         break;
       case "setClue":
         if (this.state.phase === "clue") {
@@ -58,7 +60,13 @@ export default class WavelengthServer implements Party.Server {
     this.room.broadcast(JSON.stringify({ type: "sync", state: this.state }));
   }
 
-  handleJoin(conn: Party.Connection, name: string) {
+  handleJoin(conn: Party.Connection, name: string, mode: 'join' | 'create') {
+    // If trying to join a room with no players, it doesn't "exist" yet
+    if (mode === 'join' && this.state.players.length === 0) {
+      conn.send(JSON.stringify({ type: 'error', message: 'Room does not exist' }));
+      return;
+    }
+
     const existingPlayer = this.state.players.find((p) => p.id === conn.id);
     if (!existingPlayer) {
       const team = this.state.players.filter(p => p.team === 'red').length <= this.state.players.filter(p => p.team === 'blue').length ? 'red' : 'blue';
@@ -66,15 +74,22 @@ export default class WavelengthServer implements Party.Server {
       
       const newPlayer: Player = {
         id: conn.id,
-        name,
+        name: name || `Player ${this.state.players.length + 1}`,
         team,
         role,
       };
       this.state.players.push(newPlayer);
     }
-    
-    if (this.state.players.length >= 2 && this.state.phase === 'setup') {
-        this.state.phase = 'clue';
+  }
+
+  handleStartGame(sender: Party.Connection) {
+    // Only the first player (creator) can start the game
+    if (this.state.players.length > 0 && this.state.players[0].id === sender.id) {
+        if (this.state.players.length >= 2) {
+            this.state.phase = 'clue';
+        } else {
+            sender.send(JSON.stringify({ type: 'error', message: 'Need at least 2 players to start' }));
+        }
     }
   }
 
@@ -99,11 +114,15 @@ export default class WavelengthServer implements Party.Server {
     this.state.clue = undefined;
     this.state.turnTeam = this.state.turnTeam === "red" ? "blue" : "red";
     
-    // Re-assign psychics for the next round
-    this.state.players.forEach(p => {
-        if (p.team === this.state.turnTeam) {
-            // logic to rotate psychic... simplified for now
-        }
-    });
+    // Simple psychic rotation: pick the next player in the same team
+    const teamPlayers = this.state.players.filter(p => p.team === this.state.turnTeam);
+    if (teamPlayers.length > 0) {
+        const currentPsychicIndex = teamPlayers.findIndex(p => p.role === 'psychic');
+        teamPlayers.forEach(p => p.role = 'guesser');
+        const nextPsychicIndex = (currentPsychicIndex + 1) % teamPlayers.length;
+        const nextPsychic = teamPlayers[nextPsychicIndex];
+        const pInState = this.state.players.find(p => p.id === nextPsychic.id);
+        if (pInState) pInState.role = 'psychic';
+    }
   }
 }

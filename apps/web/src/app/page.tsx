@@ -93,9 +93,7 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
     <div className="min-h-screen bg-slate-900 text-white p-4">
       <header className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
         <h1 className="text-2xl font-bold text-blue-400">Wavelength</h1>
-        <div className="text-center font-mono bg-slate-800 px-4 py-1 rounded border border-slate-700">
-            ROOM: {room}
-        </div>
+        
         <div className="flex space-x-8">
           <div className="text-center">
             <p className="text-sm text-red-400 uppercase tracking-wider">Red Team</p>
@@ -206,11 +204,13 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
 }
 
 export default function Home() {
+  const [step, setStep] = useState<"home" | "create-name" | "join-code" | "join-name">("home");
   const [room, setRoom] = useState("");
-  const [joined, setJoined] = useState(false);
   const [name, setName] = useState("");
+  const [joined, setJoined] = useState(false);
   const [mode, setMode] = useState<"join" | "create">("join");
   const [error, setError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
 
   const generateRoomCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
@@ -221,17 +221,47 @@ export default function Home() {
     return result;
   };
 
-  const handleModeChange = (newMode: "join" | "create") => {
-    setMode(newMode);
+  const handleStartCreate = () => {
+    setMode("create");
+    setRoom(generateRoomCode());
+    setStep("create-name");
     setError(null);
-    if (newMode === "create") {
-      setRoom(generateRoomCode());
-    } else {
-      setRoom("");
+  };
+
+  const handleStartJoin = () => {
+    setMode("join");
+    setRoom("");
+    setStep("join-code");
+    setError(null);
+  };
+
+  const validateRoom = async () => {
+    if (!room || room.length < 4) {
+      setError("Please enter a 4-character room code");
+      return;
+    }
+
+    setIsValidating(true);
+    setError(null);
+    try {
+      const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999";
+      const protocol = host.startsWith("localhost") ? "http" : "https";
+      const res = await fetch(`${protocol}://${host}/parties/main/${room}`);
+      const data = await res.json();
+      
+      if (data.exists) {
+        setStep("join-name");
+      } else {
+        setError("Room not found. Make sure the code is correct.");
+      }
+    } catch (err) {
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setIsValidating(false);
     }
   };
 
-  const startGame = () => {
+  const joinGame = () => {
     if (name && room) {
       setJoined(true);
       setError(null);
@@ -240,6 +270,9 @@ export default function Home() {
 
   const handleExit = (errMsg?: string) => {
     setJoined(false);
+    setStep("home");
+    setName("");
+    setRoom("");
     if (errMsg) {
       setError(errMsg);
     }
@@ -251,76 +284,132 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
-      <h1 className="text-4xl font-bold mb-8 text-blue-400">Wavelength</h1>
-      <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md space-y-6">
-        <div className="flex bg-slate-700 p-1 rounded-lg">
-          <button
-            onClick={() => handleModeChange("join")}
-            className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-              mode === "join" ? "bg-slate-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Join Room
-          </button>
-          <button
-            onClick={() => handleModeChange("create")}
-            className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-              mode === "create" ? "bg-slate-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Create Room
-          </button>
-        </div>
-
+      <h1 className="text-5xl font-black mb-12 text-blue-400 tracking-tighter">WAVELENGTH</h1>
+      
+      <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-8 border border-slate-700">
         {error && (
-            <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded text-sm text-center">
+            <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-4 rounded-xl text-sm text-center animate-in fade-in slide-in-from-top-2 duration-300">
                 {error}
             </div>
         )}
 
-        <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Your Name"
-            className="w-full p-3 rounded bg-slate-700 border border-slate-600 focus:outline-none focus:border-blue-500"
-            value={name}
-            onChange={(e) => {
-                setName(e.target.value);
-                setError(null);
-            }}
-          />
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Room Code"
-              className={`w-full p-3 rounded bg-slate-700 border border-slate-600 focus:outline-none focus:border-blue-500 uppercase font-mono ${
-                mode === "create" ? "pr-24" : ""
-              }`}
-              value={room}
-              readOnly={mode === "create"}
-              onChange={(e) => {
-                  setRoom(e.target.value.toUpperCase());
-                  setError(null);
-              }}
-            />
-            {mode === "create" && (
-              <button
-                onClick={() => setRoom(generateRoomCode())}
-                className="absolute right-2 top-2 bottom-2 px-3 bg-slate-600 hover:bg-slate-500 text-xs rounded transition-colors"
-              >
-                Regenerate
-              </button>
-            )}
+        {step === "home" && (
+          <div className="space-y-4">
+            <button
+              onClick={handleStartCreate}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-5 rounded-2xl transition-all active:scale-95 text-xl shadow-lg shadow-blue-900/20"
+            >
+              Create Room
+            </button>
+            <button
+              onClick={handleStartJoin}
+              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-5 rounded-2xl transition-all active:scale-95 text-xl border border-slate-600"
+            >
+              Join Room
+            </button>
           </div>
-        </div>
+        )}
 
-        <button
-          onClick={startGame}
-          disabled={!name || !room}
-          className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded transition-colors"
-        >
-          {mode === "join" ? "Join Game" : "Create & Join"}
-        </button>
+        {step === "create-name" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-400 uppercase tracking-wider ml-1">Your Name</label>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Enter your name"
+                className="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && name && joinGame()}
+              />
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                onClick={() => setStep("home")}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition-all"
+              >
+                Back
+              </button>
+              <button
+                onClick={joinGame}
+                disabled={!name}
+                className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20"
+              >
+                Create & Join
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "join-code" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-400 uppercase tracking-wider ml-1">Room Code</label>
+              <input
+                type="text"
+                autoFocus
+                maxLength={4}
+                placeholder="ABCD"
+                className="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-3xl text-center font-mono font-black uppercase tracking-widest"
+                value={room}
+                onChange={(e) => setRoom(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && room.length === 4 && validateRoom()}
+              />
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                onClick={() => setStep("home")}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition-all"
+              >
+                Back
+              </button>
+              <button
+                onClick={validateRoom}
+                disabled={room.length < 4 || isValidating}
+                className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20"
+              >
+                {isValidating ? "Checking..." : "Next"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "join-name" && (
+          <div className="space-y-6">
+            <div className="text-center bg-slate-900/50 py-3 rounded-xl border border-slate-700/50 mb-2">
+              <span className="text-slate-500 text-xs uppercase font-bold tracking-widest">Joining Room</span>
+              <div className="text-2xl font-mono font-black text-blue-400">{room}</div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-400 uppercase tracking-wider ml-1">Your Name</label>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Enter your name"
+                className="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && name && joinGame()}
+              />
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                onClick={() => setStep("join-code")}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition-all"
+              >
+                Back
+              </button>
+              <button
+                onClick={joinGame}
+                disabled={!name}
+                className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20"
+              >
+                Join Game
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

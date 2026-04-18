@@ -25,6 +25,20 @@ export default class WavelengthServer implements Party.Server {
     conn.send(JSON.stringify({ type: "sync", state: this.state }));
   }
 
+  async onRequest(req: Party.Request) {
+    if (req.method === "GET") {
+      const exists = this.state.players.length > 0;
+      return new Response(JSON.stringify({ exists }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+    return new Response("Method not allowed", { status: 405 });
+  }
+
   onMessage(message: string, sender: Party.Connection) {
     const msg = JSON.parse(message) as GameMessage;
 

@@ -1,4 +1,4 @@
-export type GamePhase = 'setup' | 'clue' | 'guessing' | 'reveal' | 'scoring';
+export type GamePhase = 'setup' | 'clue' | 'guessing' | 'reveal' | 'scoring' | 'lobby';
 
 export interface Player {
   id: string;
@@ -23,8 +23,10 @@ export interface GameState {
 }
 
 export type GameMessage = 
-  | { type: 'join'; name: string }
+  | { type: 'join'; name: string; mode: 'join' | 'create' }
   | { type: 'setClue'; clue: string }
   | { type: 'setDial'; position: number }
   | { type: 'submitGuess' }
-  | { type: 'nextRound' };
+  | { type: 'nextRound' }
+  | { type: 'startGame' }
+  | { type: 'error'; message: string };

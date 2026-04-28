@@ -1,5 +1,6 @@
 import type * as Party from "partykit/server";
 import { GameState, GameMessage, Player } from "@partygames/types";
+import { SPECTRUM_CARDS } from "./cards";
 
 export default class WavelengthServer implements Party.Server {
   state: GameState;
@@ -8,14 +9,19 @@ export default class WavelengthServer implements Party.Server {
     this.state = this.getInitialState();
   }
 
+  getRandomCard() {
+    return SPECTRUM_CARDS[Math.floor(Math.random() * SPECTRUM_CARDS.length)];
+  }
+
   getInitialState(): GameState {
+    const card = this.getRandomCard();
     return {
       phase: "setup",
       players: [],
       targetPosition: Math.floor(Math.random() * 100),
       dialPosition: 50,
-      leftSpectrum: "Cold",
-      rightSpectrum: "Hot",
+      leftSpectrum: card.left,
+      rightSpectrum: card.right,
       scores: { red: 0, blue: 0 },
       turnTeam: "red",
     };
@@ -93,9 +99,12 @@ export default class WavelengthServer implements Party.Server {
   }
 
   resetRound() {
+    const card = this.getRandomCard();
     this.state.phase = "clue";
     this.state.targetPosition = Math.floor(Math.random() * 100);
     this.state.dialPosition = 50;
+    this.state.leftSpectrum = card.left;
+    this.state.rightSpectrum = card.right;
     this.state.clue = undefined;
     this.state.turnTeam = this.state.turnTeam === "red" ? "blue" : "red";
     

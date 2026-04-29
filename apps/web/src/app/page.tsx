@@ -26,9 +26,10 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
   if (!state) return <div className="p-8 text-white flex justify-center items-center min-h-screen bg-slate-900">Connecting...</div>;
 
   const me = state.players.find((p) => p.id === socket.id);
-  const isTurn = state.turnTeam === me?.team;
   const isPsychic = me?.role === "psychic";
   const isCreator = state.players[0]?.id === socket.id;
+  const isSliderLocked = state.sliderController !== null && state.sliderController !== socket.id;
+  const sliderControllerName = state.players.find(p => p.id === state.sliderController)?.name;
 
   if (state.phase === 'lobby') {
     return (
@@ -47,7 +48,7 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
                     <div className="grid grid-cols-2 gap-4">
                         {state.players.map((p) => (
                             <div key={p.id} className="flex items-center space-x-2 bg-slate-700 p-3 rounded-lg">
-                                <div className={`w-3 h-3 rounded-full ${p.team === 'red' ? 'bg-red-500' : 'bg-blue-500'}`} />
+                                <div className="w-3 h-3 rounded-full bg-blue-500" />
                                 <span className="font-medium">{p.name} {p.id === socket.id ? '(You)' : ''}</span>
                             </div>
                         ))}
@@ -77,6 +78,31 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
     );
   }
 
+  if (state.phase === 'gameover') {
+    return (
+        <div className="min-h-screen bg-slate-900 text-white p-4 flex flex-col items-center justify-center">
+            <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-lg space-y-8 text-center">
+                <h2 className="text-4xl font-black text-yellow-400">GAME OVER</h2>
+                <div className="space-y-2">
+                    <p className="text-slate-400 uppercase tracking-widest font-bold">Final Score</p>
+                    <p className="text-7xl font-black text-white">{state.score}</p>
+                </div>
+                <div className="bg-slate-700/50 p-6 rounded-xl border border-slate-600">
+                    <p className="text-slate-300">Played {state.totalRounds} rounds with {state.players.length} players.</p>
+                </div>
+                {isCreator && (
+                    <button
+                        onClick={() => socket.send(JSON.stringify({ type: 'returnToLobby' }))}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all text-xl"
+                    >
+                        Back to Lobby
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+  }
+
   const sendClue = (clue: string) => {
     socket.send(JSON.stringify({ type: "setClue", clue }));
   };
@@ -89,6 +115,14 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
     socket.send(JSON.stringify({ type: "submitGuess" }));
   };
 
+  const claimSlider = () => {
+    socket.send(JSON.stringify({ type: "claimSlider" }));
+  };
+
+  const releaseSlider = () => {
+    socket.send(JSON.stringify({ type: "releaseSlider" }));
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4">
       <header className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
@@ -96,12 +130,12 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
         
         <div className="flex space-x-8">
           <div className="text-center">
-            <p className="text-sm text-red-400 uppercase tracking-wider">Red Team</p>
-            <p className="text-2xl font-bold">{state.scores.red}</p>
+            <p className="text-sm text-slate-400 uppercase tracking-wider">Round</p>
+            <p className="text-2xl font-bold">{state.currentRound} / {state.totalRounds}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-blue-400 uppercase tracking-wider">Blue Team</p>
-            <p className="text-2xl font-bold">{state.scores.blue}</p>
+            <p className="text-sm text-yellow-400 uppercase tracking-wider">Co-op Score</p>
+            <p className="text-2xl font-bold">{state.score}</p>
           </div>
         </div>
       </header>
@@ -135,24 +169,34 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
             
             {/* Dial Handle */}
             <div 
-              className="absolute h-full w-2 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] z-10 transition-all duration-300"
+              className="absolute h-full w-2 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] z-10"
               style={{ left: `${state.dialPosition}%`, transform: 'translateX(-50%)' }}
             />
           </div>
           
-          <input 
-            type="range" 
-            min="0" 
-            max="100" 
-            className="w-full accent-blue-500"
-            value={state.dialPosition}
-            disabled={!isTurn || isPsychic || state.phase !== 'guessing'}
-            onChange={(e) => updateDial(Number(e.target.value))}
-          />
+          <div className="w-full space-y-2">
+            <input 
+                type="range" 
+                min="0" 
+                max="100" 
+                className={`w-full accent-blue-500 ${isSliderLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                value={state.dialPosition}
+                disabled={isPsychic || state.phase !== 'guessing' || isSliderLocked}
+                onChange={(e) => updateDial(Number(e.target.value))}
+                onPointerDown={() => !isPsychic && claimSlider()}
+                onPointerUp={releaseSlider}
+                onPointerCancel={releaseSlider}
+            />
+            {isSliderLocked && (
+                <p className="text-center text-sm text-yellow-500 animate-pulse">
+                    {sliderControllerName} is controlling the dial...
+                </p>
+            )}
+          </div>
         </section>
 
         <section className="text-center space-y-6">
-          {state.phase === 'clue' && isTurn && isPsychic && (
+          {state.phase === 'clue' && isPsychic && (
              <div className="flex flex-col items-center space-y-4">
                 <p className="text-lg">You are the Psychic! Enter a clue for the spectrum.</p>
                 <div className="flex space-x-2">
@@ -175,10 +219,11 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
              </div>
           )}
 
-          {state.phase === 'guessing' && isTurn && !isPsychic && (
+          {state.phase === 'guessing' && !isPsychic && (
             <button 
                 onClick={submitGuess}
-                className="bg-green-600 px-8 py-3 rounded-full text-xl font-bold hover:bg-green-500 transition-transform active:scale-95"
+                disabled={isSliderLocked}
+                className="bg-green-600 px-8 py-3 rounded-full text-xl font-bold hover:bg-green-500 transition-transform active:scale-95 disabled:opacity-50"
             >
                 Submit Guess
             </button>
@@ -189,12 +234,11 @@ function Game({ room, name, mode, onExit }: { room: string; name: string; mode: 
                 onClick={() => socket.send(JSON.stringify({ type: 'nextRound' }))}
                 className="bg-slate-700 px-8 py-3 rounded-full text-xl font-bold hover:bg-slate-600"
             >
-                Next Round
+                {state.currentRound >= state.totalRounds ? 'Finish Game' : 'Next Round'}
             </button>
           )}
 
           <div className="pt-8 text-slate-500">
-            <p>Team: <span className={me?.team === 'red' ? 'text-red-400' : 'text-blue-400'}>{me?.team}</span></p>
             <p>Role: <span className="text-slate-300 capitalize">{me?.role}</span></p>
           </div>
         </section>

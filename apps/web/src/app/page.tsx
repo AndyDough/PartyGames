@@ -4,6 +4,7 @@ import { useState } from "react";
 import usePartySocket from "partysocket/react";
 import { GameState } from "@partygames/types";
 import { Avatar, AVATARS } from "@/components/Avatar";
+import { WavelengthDial } from "@/components/WavelengthDial";
 
 function Game({
   room,
@@ -297,104 +298,49 @@ function Game({
       </header>
 
       <main className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-6 py-12 space-y-16">
-        {/* Spectrum Section */}
-        <section className="space-y-8">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-black uppercase tracking-widest italic w-24 text-right pr-4">
-              {state.leftSpectrum}
-            </span>
-            <div className="flex-1 h-3 bg-white/10 rounded-full relative overflow-hidden ring-4 ring-white/5">
-              <div className="h-full bg-gradient-to-r from-zinc-800 via-white to-zinc-800 w-full opacity-50"></div>
-              {/* Reveal Phase: Show target area */}
-              {(isPsychic || state.phase === "reveal") && (
-                <div
-                  className="absolute h-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.8)] z-10"
-                  style={{
-                    left: `${state.targetPosition - 5}%`,
-                    width: "10%",
-                  }}
-                >
-                  <div className="h-full w-full bg-white animate-pulse" />
-                </div>
-              )}
-            </div>
-            <span className="text-sm font-black uppercase tracking-widest italic w-24 pl-4">
-              {state.rightSpectrum}
-            </span>
-          </div>
-
-          <div className="text-center min-h-[4rem] flex flex-col items-center justify-center">
-            {state.clue ? (
-              <div className="text-4xl font-black uppercase italic tracking-tight leading-tight">
-                "{state.clue}"
+        {/* Dial Section */}
+        <section className="space-y-12">
+          <div className="text-center min-h-[4rem] flex flex-col items-center justify-center space-y-4">
+             <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">
+                {state.phase === 'clue' ? 'SETTING THE CLUE' : state.phase === 'guessing' ? `${state.players.find(p => p.role === 'psychic')?.name}'s Clue` : 'THE REVEAL'}
+             </div>
+             {state.clue ? (
+              <div className="text-5xl font-black uppercase italic tracking-tight leading-tight">
+                {state.clue}
               </div>
             ) : (
-              <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-10 italic">
-                Waiting for clue...
+              <div className="text-lg font-black uppercase tracking-[0.2em] opacity-20 italic">
+                {isPsychic ? 'GIVE A CLUE...' : 'Waiting for clue...'}
               </div>
             )}
           </div>
-        </section>
 
-        {/* Dial Section */}
-        <section className="relative flex flex-col items-center space-y-12">
-          <div className="w-full relative py-8">
-            <div className="h-0.5 w-full bg-white/20 absolute top-1/2 left-0 -translate-y-1/2" />
+          <WavelengthDial 
+            position={state.dialPosition}
+            targetPosition={state.targetPosition}
+            showTarget={isPsychic || state.phase === 'reveal'}
+            showNeedle={state.phase !== 'clue'}
+            isInteractive={!isPsychic && state.phase === 'guessing' && !isSliderLocked}
+            onChange={updateDial}
+            onPointerDown={claimSlider}
+            onPointerUp={releaseSlider}
+          />
 
-            {/* Markers */}
-            {[0, 25, 50, 75, 100].map((m) => (
-              <div
-                key={m}
-                className="absolute top-1/2 -translate-y-1/2 h-4 w-0.5 bg-white/20"
-                style={{ left: `${m}%` }}
-              />
-            ))}
-
-            {/* Dial Handle */}
-            <div
-              className="absolute top-1/2 h-16 w-1.5 bg-white -translate-y-1/2 shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all duration-300 ease-out z-20"
-              style={{
-                left: `${state.dialPosition}%`,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-[10px] font-black">
-                {Math.round(state.dialPosition)}
-              </div>
+          <div className="flex justify-between items-center px-4">
+            <div className="flex flex-col items-center space-y-1 w-32">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-30">← Spectrum</span>
+                <span className="text-xs font-black uppercase tracking-widest italic text-center">{state.leftSpectrum}</span>
             </div>
-
-            {/* Hidden Target Handle for Reveal */}
-            {state.phase === "reveal" && (
-              <div
-                className="absolute top-1/2 h-12 w-0.5 bg-white/30 -translate-y-1/2 transition-all duration-500 z-10"
-                style={{
-                  left: `${state.targetPosition}%`,
-                  transform: "translate(-50%, -50%)",
-                }}
-              />
-            )}
-          </div>
-
-          <div className="w-full space-y-4">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              className={`w-full appearance-none bg-transparent cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-12 [&::-webkit-slider-thumb]:h-12 [&::-webkit-slider-thumb]:bg-transparent [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:rounded-full ${isSliderLocked ? "opacity-20 cursor-not-allowed" : ""}`}
-              value={state.dialPosition}
-              disabled={
-                isPsychic || state.phase !== "guessing" || isSliderLocked
-              }
-              onChange={(e) => updateDial(Number(e.target.value))}
-              onPointerDown={() => !isPsychic && claimSlider()}
-              onPointerUp={releaseSlider}
-              onPointerCancel={releaseSlider}
-            />
             {isSliderLocked && (
-              <p className="text-center text-[10px] font-black uppercase tracking-[0.3em] opacity-40 animate-pulse">
-                {sliderControllerName} is dialing...
-              </p>
+                <div className="flex flex-col items-center animate-pulse">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 italic"> Dialing...</span>
+                    <span className="text-xs font-black uppercase">{sliderControllerName}</span>
+                </div>
             )}
+            <div className="flex flex-col items-center space-y-1 w-32">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-30">Spectrum →</span>
+                <span className="text-xs font-black uppercase tracking-widest italic text-center">{state.rightSpectrum}</span>
+            </div>
           </div>
         </section>
 
@@ -437,15 +383,37 @@ function Game({
             </button>
           )}
 
-          {state.phase === "reveal" && (
-            <button
-              onClick={() => socket.send(JSON.stringify({ type: "nextRound" }))}
-              className="w-full border-2 border-white text-white font-black py-5 rounded-full text-xl uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all"
-            >
-              {state.currentRound >= state.totalRounds
-                ? "Finish Game"
-                : "Next Round"}
-            </button>
+          {state.phase === 'reveal' && (
+             <div className="flex flex-col items-center space-y-8 animate-in zoom-in duration-500">
+                <div className="text-center space-y-2">
+                    {(() => {
+                        let diff = Math.abs(state.dialPosition - state.targetPosition);
+                        if (diff > 50) diff = 100 - diff;
+                        
+                        let points = 0;
+                        let emoji = '😭';
+                        let label = 'No points';
+                        if (diff <= 2) { points = 4; emoji = '🎯'; label = 'BULLSEYE!'; }
+                        else if (diff <= 6) { points = 3; emoji = '🔥'; label = 'Great Guess!'; }
+                        else if (diff <= 10) { points = 2; emoji = '👍'; label = 'Nice!'; }
+
+                        return (
+
+                            <>
+                                <div className="text-7xl mb-4">{emoji}</div>
+                                <div className="text-4xl font-black uppercase italic tracking-tighter">{label}</div>
+                                {points > 0 && <div className="text-xl font-black opacity-40">+{points} POINTS</div>}
+                            </>
+                        );
+                    })()}
+                </div>
+                <button 
+                    onClick={() => socket.send(JSON.stringify({ type: 'nextRound' }))}
+                    className="w-full border-2 border-white text-white font-black py-5 rounded-full text-xl uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all"
+                >
+                    {state.currentRound >= state.totalRounds ? 'Finish Game' : 'Next Round'}
+                </button>
+             </div>
           )}
 
           <div className="pt-12 flex justify-center">

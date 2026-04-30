@@ -138,6 +138,11 @@ export default class WavelengthServer implements Party.Server {
             this.state.currentRound = 1;
             this.state.totalRounds = this.state.players.length * 2;
             this.state.phase = 'clue';
+            this.state.dialPosition = 50;
+            this.state.targetPosition = Math.floor(Math.random() * 100);
+            const card = this.getRandomCard();
+            this.state.leftSpectrum = card.left;
+            this.state.rightSpectrum = card.right;
             
             // Assign first psychic
             this.state.players.forEach(p => p.role = 'guesser');
@@ -149,11 +154,14 @@ export default class WavelengthServer implements Party.Server {
   }
 
   calculateScore() {
-    const diff = Math.abs(this.state.dialPosition - this.state.targetPosition);
+    let diff = Math.abs(this.state.dialPosition - this.state.targetPosition);
+    // Shortest distance on a 100-unit loop
+    if (diff > 50) diff = 100 - diff;
+
     let points = 0;
     if (diff <= 2) points = 4;
-    else if (diff <= 7) points = 3;
-    else if (diff <= 12) points = 2;
+    else if (diff <= 6) points = 3;
+    else if (diff <= 10) points = 2;
 
     this.state.score += points;
   }
@@ -189,6 +197,7 @@ export default class WavelengthServer implements Party.Server {
         this.state.score = 0;
         this.state.currentRound = 0;
         this.state.totalRounds = 0;
+        this.state.dialPosition = 50;
         this.state.players.forEach(p => p.role = 'guesser');
     }
   }

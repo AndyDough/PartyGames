@@ -58,11 +58,17 @@ export default class WavelengthServer implements Party.Server {
   }
 
   onMessage(message: string, sender: Party.Connection) {
-    const msg = JSON.parse(message) as GameMessage;
+    const msg = JSON.parse(message) as any;
 
     switch (msg.type) {
       case "join":
         this.handleJoin(sender, msg.name, msg.mode);
+        break;
+      case "setAvatar":
+        const p = this.state.players.find(p => p.id === sender.id);
+        if (p) {
+          (p as any).avatarIndex = msg.avatarIndex;
+        }
         break;
       case "startGame":
         this.handleStartGame(sender);
@@ -115,10 +121,11 @@ export default class WavelengthServer implements Party.Server {
 
     const existingPlayer = this.state.players.find((p) => p.id === conn.id);
     if (!existingPlayer) {
-      const newPlayer: Player = {
+      const newPlayer: any = {
         id: conn.id,
         name: name || `Player ${this.state.players.length + 1}`,
         role: 'guesser',
+        avatarIndex: 0,
       };
       this.state.players.push(newPlayer);
     }

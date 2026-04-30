@@ -3,6 +3,7 @@
 import { useState } from "react";
 import usePartySocket from "partysocket/react";
 import { GameState } from "@partygames/types";
+import { Avatar, AVATARS } from "@/components/Avatar";
 
 function Game({
   room,
@@ -16,6 +17,13 @@ function Game({
   onExit: (msg?: string) => void;
 }) {
   const [state, setState] = useState<GameState | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(room);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const socket = usePartySocket({
     host: process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999",
@@ -63,35 +71,45 @@ function Game({
           <h2 className="text-4xl font-black uppercase tracking-tighter mb-1 italic">
             Starter
           </h2>
-          <div className="flex items-center space-x-2 text-white/50">
+          <button 
+            onClick={handleCopy}
+            className="flex items-center space-x-2 text-white/50 group hover:text-white transition-all active:scale-95"
+          >
             <p className="text-[11px] font-black uppercase tracking-widest">
-              Your room code is{" "}
-              <span className="text-white border-b-2 border-white/20 ml-1">
+              {copied ? "Copied!" : "Your room code is"}{" "}
+              <span className="text-white border-b-2 border-white/20 ml-1 group-hover:border-white transition-colors">
                 {room}
               </span>
             </p>
-            <button className="hover:text-white transition-colors">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="3"
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-            </button>
-          </div>
+            {!copied && (
+                <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="3"
+                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    />
+                </svg>
+            )}
+          </button>
         </div>
 
         {/* Avatar Section */}
         <div className="flex-1 flex flex-col items-center justify-center space-y-10 p-6">
           <div className="relative flex items-center justify-center w-full max-w-sm">
-            <button className="absolute left-0 p-4 opacity-20 hover:opacity-100 transition-opacity">
+            <button 
+              onClick={() => {
+                const current = (me as any)?.avatarIndex || 0;
+                const next = (current - 1 + AVATARS.length) % AVATARS.length;
+                socket.send(JSON.stringify({ type: 'setAvatar', avatarIndex: next }));
+              }}
+              className="absolute left-0 p-4 opacity-20 hover:opacity-100 transition-opacity z-10"
+            >
               <svg
                 className="w-10 h-10"
                 fill="none"
@@ -109,20 +127,25 @@ function Game({
 
             <div className="relative group">
               {isCreator && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-black text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-xl">
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-black text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-xl z-20">
                   Host
                 </div>
               )}
               <div className="w-44 h-44 rounded-full border-[6px] border-white flex items-center justify-center bg-zinc-950 overflow-hidden shadow-2xl relative">
                 {/* Minimalist B&W Avatar */}
                 <div className="absolute inset-0 bg-white/5 animate-pulse"></div>
-                <div className="relative w-28 h-28 bg-white flex items-center justify-center rotate-45 transform group-hover:rotate-90 transition-transform duration-500">
-                  <div className="w-14 h-14 bg-black rounded-full" />
-                </div>
+                <Avatar index={(me as any)?.avatarIndex || 0} className="w-44 h-44" />
               </div>
             </div>
 
-            <button className="absolute right-0 p-4 opacity-20 hover:opacity-100 transition-opacity">
+            <button 
+              onClick={() => {
+                const current = (me as any)?.avatarIndex || 0;
+                const next = (current + 1) % AVATARS.length;
+                socket.send(JSON.stringify({ type: 'setAvatar', avatarIndex: next }));
+              }}
+              className="absolute right-0 p-4 opacity-20 hover:opacity-100 transition-opacity z-10"
+            >
               <svg
                 className="w-10 h-10"
                 fill="none"
@@ -150,22 +173,12 @@ function Game({
             {state.players.map((p) => (
               <div
                 key={p.id}
-                className={`w-12 h-12 rounded-full border-2 transition-all duration-300 flex items-center justify-center ${p.id === socket.id ? "bg-white border-white" : "bg-transparent border-white/20 opacity-50"}`}
+                className={`w-12 h-12 rounded-full border-2 transition-all duration-300 flex items-center justify-center overflow-hidden ${p.id === socket.id ? "bg-white border-white" : "bg-transparent border-white/20 opacity-50"}`}
               >
                 {p.id === socket.id ? (
-                  <svg
-                    className="w-6 h-6 text-black"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <Avatar index={(p as any).avatarIndex || 0} className="w-8 h-8 brightness-0" />
                 ) : (
-                  <div className="w-2 h-2 bg-white rounded-full" />
+                  <Avatar index={(p as any).avatarIndex || 0} className="w-8 h-8 opacity-80" />
                 )}
               </div>
             ))}
@@ -179,21 +192,6 @@ function Game({
                 </div>
               ),
             )}
-            <button className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center opacity-30 hover:opacity-100 transition-opacity">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="3"
-                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                />
-              </svg>
-            </button>
           </div>
         </div>
 

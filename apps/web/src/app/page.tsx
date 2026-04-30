@@ -70,9 +70,9 @@ function Game({
             <span className="mr-2 text-base">←</span> Leave Room
           </button>
           <h2 className="text-4xl font-black uppercase tracking-tighter mb-1 italic">
-            Starter
+            Lobby
           </h2>
-          <button 
+          <button
             onClick={handleCopy}
             className="flex items-center space-x-2 text-white/50 group hover:text-white transition-all active:scale-95"
           >
@@ -83,19 +83,19 @@ function Game({
               </span>
             </p>
             {!copied && (
-                <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="3"
-                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                    />
-                </svg>
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
             )}
           </button>
         </div>
@@ -103,11 +103,13 @@ function Game({
         {/* Avatar Section */}
         <div className="flex-1 flex flex-col items-center justify-center space-y-10 p-6">
           <div className="relative flex items-center justify-center w-full max-w-sm">
-            <button 
+            <button
               onClick={() => {
                 const current = (me as any)?.avatarIndex || 0;
                 const next = (current - 1 + AVATARS.length) % AVATARS.length;
-                socket.send(JSON.stringify({ type: 'setAvatar', avatarIndex: next }));
+                socket.send(
+                  JSON.stringify({ type: "setAvatar", avatarIndex: next }),
+                );
               }}
               className="absolute left-0 p-4 opacity-20 hover:opacity-100 transition-opacity z-10"
             >
@@ -135,15 +137,20 @@ function Game({
               <div className="w-44 h-44 rounded-full border-[6px] border-white flex items-center justify-center bg-zinc-950 overflow-hidden shadow-2xl relative">
                 {/* Minimalist B&W Avatar */}
                 <div className="absolute inset-0 bg-white/5 animate-pulse"></div>
-                <Avatar index={(me as any)?.avatarIndex || 0} className="w-44 h-44" />
+                <Avatar
+                  index={(me as any)?.avatarIndex || 0}
+                  className="w-44 h-44"
+                />
               </div>
             </div>
 
-            <button 
+            <button
               onClick={() => {
                 const current = (me as any)?.avatarIndex || 0;
                 const next = (current + 1) % AVATARS.length;
-                socket.send(JSON.stringify({ type: 'setAvatar', avatarIndex: next }));
+                socket.send(
+                  JSON.stringify({ type: "setAvatar", avatarIndex: next }),
+                );
               }}
               className="absolute right-0 p-4 opacity-20 hover:opacity-100 transition-opacity z-10"
             >
@@ -177,9 +184,15 @@ function Game({
                 className={`w-12 h-12 rounded-full border-2 transition-all duration-300 flex items-center justify-center overflow-hidden ${p.id === socket.id ? "bg-white border-white" : "bg-transparent border-white/20 opacity-50"}`}
               >
                 {p.id === socket.id ? (
-                  <Avatar index={(p as any).avatarIndex || 0} className="w-8 h-8 brightness-0" />
+                  <Avatar
+                    index={(p as any).avatarIndex || 0}
+                    className="w-8 h-8 brightness-0"
+                  />
                 ) : (
-                  <Avatar index={(p as any).avatarIndex || 0} className="w-8 h-8 opacity-80" />
+                  <Avatar
+                    index={(p as any).avatarIndex || 0}
+                    className="w-8 h-8 opacity-80"
+                  />
                 )}
               </div>
             ))}
@@ -301,26 +314,32 @@ function Game({
         {/* Dial Section */}
         <section className="space-y-12">
           <div className="text-center min-h-[4rem] flex flex-col items-center justify-center space-y-4">
-             <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">
-                {state.phase === 'clue' ? 'SETTING THE CLUE' : state.phase === 'guessing' ? `${state.players.find(p => p.role === 'psychic')?.name}'s Clue` : 'THE REVEAL'}
-             </div>
-             {state.clue ? (
+            <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">
+              {state.phase === "clue"
+                ? "SETTING THE CLUE"
+                : state.phase === "guessing"
+                  ? `${state.players.find((p) => p.role === "psychic")?.name}'s Clue`
+                  : "THE REVEAL"}
+            </div>
+            {state.clue ? (
               <div className="text-5xl font-black uppercase italic tracking-tight leading-tight">
                 {state.clue}
               </div>
             ) : (
               <div className="text-lg font-black uppercase tracking-[0.2em] opacity-20 italic">
-                {isPsychic ? 'GIVE A CLUE...' : 'Waiting for clue...'}
+                {isPsychic ? "GIVE A CLUE..." : "Waiting for clue..."}
               </div>
             )}
           </div>
 
-          <WavelengthDial 
+          <WavelengthDial
             position={state.dialPosition}
             targetPosition={state.targetPosition}
-            showTarget={isPsychic || state.phase === 'reveal'}
-            showNeedle={state.phase !== 'clue'}
-            isInteractive={!isPsychic && state.phase === 'guessing' && !isSliderLocked}
+            showTarget={isPsychic || state.phase === "reveal"}
+            showNeedle={state.phase !== "clue"}
+            isInteractive={
+              !isPsychic && state.phase === "guessing" && !isSliderLocked
+            }
             onChange={updateDial}
             onPointerDown={claimSlider}
             onPointerUp={releaseSlider}
@@ -328,18 +347,31 @@ function Game({
 
           <div className="flex justify-between items-center px-4">
             <div className="flex flex-col items-center space-y-1 w-32">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-30">← Spectrum</span>
-                <span className="text-xs font-black uppercase tracking-widest italic text-center">{state.leftSpectrum}</span>
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-30">
+                ← Spectrum
+              </span>
+              <span className="text-xs font-black uppercase tracking-widest italic text-center">
+                {state.leftSpectrum}
+              </span>
             </div>
             {isSliderLocked && (
-                <div className="flex flex-col items-center animate-pulse">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 italic"> Dialing...</span>
-                    <span className="text-xs font-black uppercase">{sliderControllerName}</span>
-                </div>
+              <div className="flex flex-col items-center animate-pulse">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 italic">
+                  {" "}
+                  Dialing...
+                </span>
+                <span className="text-xs font-black uppercase">
+                  {sliderControllerName}
+                </span>
+              </div>
             )}
             <div className="flex flex-col items-center space-y-1 w-32">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-30">Spectrum →</span>
-                <span className="text-xs font-black uppercase tracking-widest italic text-center">{state.rightSpectrum}</span>
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-30">
+                Spectrum →
+              </span>
+              <span className="text-xs font-black uppercase tracking-widest italic text-center">
+                {state.rightSpectrum}
+              </span>
             </div>
           </div>
         </section>
@@ -383,37 +415,58 @@ function Game({
             </button>
           )}
 
-          {state.phase === 'reveal' && (
-             <div className="flex flex-col items-center space-y-8 animate-in zoom-in duration-500">
-                <div className="text-center space-y-2">
-                    {(() => {
-                        let diff = Math.abs(state.dialPosition - state.targetPosition);
-                        if (diff > 50) diff = 100 - diff;
-                        
-                        let points = 0;
-                        let emoji = '😭';
-                        let label = 'No points';
-                        if (diff <= 2) { points = 4; emoji = '🎯'; label = 'BULLSEYE!'; }
-                        else if (diff <= 6) { points = 3; emoji = '🔥'; label = 'Great Guess!'; }
-                        else if (diff <= 10) { points = 2; emoji = '👍'; label = 'Nice!'; }
+          {state.phase === "reveal" && (
+            <div className="flex flex-col items-center space-y-8 animate-in zoom-in duration-500">
+              <div className="text-center space-y-2">
+                {(() => {
+                  let diff = Math.abs(
+                    state.dialPosition - state.targetPosition,
+                  );
+                  if (diff > 50) diff = 100 - diff;
 
-                        return (
+                  let points = 0;
+                  let emoji = "😭";
+                  let label = "No points";
+                  if (diff <= 2) {
+                    points = 4;
+                    emoji = "🎯";
+                    label = "BULLSEYE!";
+                  } else if (diff <= 6) {
+                    points = 3;
+                    emoji = "🔥";
+                    label = "Great Guess!";
+                  } else if (diff <= 10) {
+                    points = 2;
+                    emoji = "👍";
+                    label = "Nice!";
+                  }
 
-                            <>
-                                <div className="text-7xl mb-4">{emoji}</div>
-                                <div className="text-4xl font-black uppercase italic tracking-tighter">{label}</div>
-                                {points > 0 && <div className="text-xl font-black opacity-40">+{points} POINTS</div>}
-                            </>
-                        );
-                    })()}
-                </div>
-                <button 
-                    onClick={() => socket.send(JSON.stringify({ type: 'nextRound' }))}
-                    className="w-full border-2 border-white text-white font-black py-5 rounded-full text-xl uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all"
-                >
-                    {state.currentRound >= state.totalRounds ? 'Finish Game' : 'Next Round'}
-                </button>
-             </div>
+                  return (
+                    <>
+                      <div className="text-7xl mb-4">{emoji}</div>
+                      <div className="text-4xl font-black uppercase italic tracking-tighter">
+                        {label}
+                      </div>
+                      {points > 0 && (
+                        <div className="text-xl font-black opacity-40">
+                          +{points} POINTS
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              <button
+                onClick={() =>
+                  socket.send(JSON.stringify({ type: "nextRound" }))
+                }
+                className="w-full border-2 border-white text-white font-black py-5 rounded-full text-xl uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all"
+              >
+                {state.currentRound >= state.totalRounds
+                  ? "Finish Game"
+                  : "Next Round"}
+              </button>
+            </div>
           )}
 
           <div className="pt-12 flex justify-center">

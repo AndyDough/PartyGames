@@ -1,9 +1,8 @@
-export type GamePhase = 'setup' | 'clue' | 'guessing' | 'reveal' | 'scoring' | 'lobby';
+export type GamePhase = 'setup' | 'clue' | 'guessing' | 'reveal' | 'scoring' | 'lobby' | 'gameover';
 
 export interface Player {
   id: string;
   name: string;
-  team: 'red' | 'blue';
   role: 'psychic' | 'guesser';
 }
 
@@ -15,18 +14,20 @@ export interface GameState {
   clue?: string;
   leftSpectrum: string;
   rightSpectrum: string;
-  scores: {
-    red: number;
-    blue: number;
-  };
-  turnTeam: 'red' | 'blue';
+  score: number;
+  currentRound: number;
+  totalRounds: number;
+  sliderController: string | null;
 }
 
 export type GameMessage = 
   | { type: 'join'; name: string; mode: 'join' | 'create' }
   | { type: 'setClue'; clue: string }
   | { type: 'setDial'; position: number }
+  | { type: 'claimSlider' }
+  | { type: 'releaseSlider' }
   | { type: 'submitGuess' }
   | { type: 'nextRound' }
   | { type: 'startGame' }
+  | { type: 'returnToLobby' }
   | { type: 'error'; message: string };

@@ -1,5 +1,6 @@
 import type * as Party from "partykit/server";
 import { GameState, GameMessage, Player } from "@partygames/types";
+import { SPECTRUM_CARDS } from "./cards";
 
 export default class WavelengthServer implements Party.Server {
   state: GameState;
@@ -8,21 +9,38 @@ export default class WavelengthServer implements Party.Server {
     this.state = this.getInitialState();
   }
 
+  getRandomCard() {
+    return SPECTRUM_CARDS[Math.floor(Math.random() * SPECTRUM_CARDS.length)];
+  }
+
   getInitialState(): GameState {
+    const card = this.getRandomCard();
     return {
       phase: "lobby",
       players: [],
       targetPosition: Math.floor(Math.random() * 100),
       dialPosition: 50,
-      leftSpectrum: "Cold",
-      rightSpectrum: "Hot",
-      scores: { red: 0, blue: 0 },
-      turnTeam: "red",
+      leftSpectrum: card.left,
+      rightSpectrum: card.right,
+      score: 0,
+      currentRound: 0,
+      totalRounds: 0,
+      sliderController: null,
     };
   }
 
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
     conn.send(JSON.stringify({ type: "sync", state: this.state }));
+  }
+
+  onClose(conn: Party.Connection) {
+    this.state.players = this.state.players.filter((p) => p.id !== conn.id);
+    
+    if (this.state.sliderController === conn.id) {
+        this.state.sliderController = null;
+    }
+
+    this.room.broadcast(JSON.stringify({ type: "sync", state: this.state }));
   }
 
   async onRequest(req: Party.Request) {
@@ -40,11 +58,17 @@ export default class WavelengthServer implements Party.Server {
   }
 
   onMessage(message: string, sender: Party.Connection) {
-    const msg = JSON.parse(message) as GameMessage;
+    const msg = JSON.parse(message) as any;
 
     switch (msg.type) {
       case "join":
         this.handleJoin(sender, msg.name, msg.mode);
+        break;
+      case "setAvatar":
+        const p = this.state.players.find(p => p.id === sender.id);
+        if (p) {
+          (p as any).avatarIndex = msg.avatarIndex;
+        }
         break;
       case "startGame":
         this.handleStartGame(sender);
@@ -55,8 +79,19 @@ export default class WavelengthServer implements Party.Server {
           this.state.phase = "guessing";
         }
         break;
+      case "claimSlider":
+        const player = this.state.players.find(p => p.id === sender.id);
+        if (this.state.phase === "guessing" && this.state.sliderController === null && player?.role !== 'psychic') {
+          this.state.sliderController = sender.id;
+        }
+        break;
+      case "releaseSlider":
+        if (this.state.sliderController === sender.id) {
+          this.state.sliderController = null;
+        }
+        break;
       case "setDial":
-        if (this.state.phase === "guessing") {
+        if (this.state.phase === "guessing" && this.state.sliderController === sender.id) {
           this.state.dialPosition = msg.position;
         }
         break;
@@ -64,10 +99,14 @@ export default class WavelengthServer implements Party.Server {
         if (this.state.phase === "guessing") {
           this.calculateScore();
           this.state.phase = "reveal";
+          this.state.sliderController = null;
         }
         break;
       case "nextRound":
         this.resetRound();
+        break;
+      case "returnToLobby":
+        this.handleReturnToLobby(sender);
         break;
     }
 
@@ -75,7 +114,6 @@ export default class WavelengthServer implements Party.Server {
   }
 
   handleJoin(conn: Party.Connection, name: string, mode: 'join' | 'create') {
-    // If trying to join a room with no players, it doesn't "exist" yet
     if (mode === 'join' && this.state.players.length === 0) {
       conn.send(JSON.stringify({ type: 'error', message: 'Room does not exist' }));
       return;
@@ -83,24 +121,32 @@ export default class WavelengthServer implements Party.Server {
 
     const existingPlayer = this.state.players.find((p) => p.id === conn.id);
     if (!existingPlayer) {
-      const team = this.state.players.filter(p => p.team === 'red').length <= this.state.players.filter(p => p.team === 'blue').length ? 'red' : 'blue';
-      const role = this.state.players.filter(p => p.role === 'psychic' && p.team === team).length === 0 ? 'psychic' : 'guesser';
-      
-      const newPlayer: Player = {
+      const newPlayer: any = {
         id: conn.id,
         name: name || `Player ${this.state.players.length + 1}`,
-        team,
-        role,
+        role: 'guesser',
+        avatarIndex: 0,
       };
       this.state.players.push(newPlayer);
     }
   }
 
   handleStartGame(sender: Party.Connection) {
-    // Only the first player (creator) can start the game
     if (this.state.players.length > 0 && this.state.players[0].id === sender.id) {
         if (this.state.players.length >= 2) {
+            this.state.score = 0;
+            this.state.currentRound = 1;
+            this.state.totalRounds = this.state.players.length * 2;
             this.state.phase = 'clue';
+            this.state.dialPosition = 50;
+            this.state.targetPosition = Math.floor(Math.random() * 100);
+            const card = this.getRandomCard();
+            this.state.leftSpectrum = card.left;
+            this.state.rightSpectrum = card.right;
+            
+            // Assign first psychic
+            this.state.players.forEach(p => p.role = 'guesser');
+            this.state.players[0].role = 'psychic';
         } else {
             sender.send(JSON.stringify({ type: 'error', message: 'Need at least 2 players to start' }));
         }
@@ -108,35 +154,51 @@ export default class WavelengthServer implements Party.Server {
   }
 
   calculateScore() {
-    const diff = Math.abs(this.state.dialPosition - this.state.targetPosition);
+    let diff = Math.abs(this.state.dialPosition - this.state.targetPosition);
+    // Shortest distance on a 100-unit loop
+    if (diff > 50) diff = 100 - diff;
+
     let points = 0;
     if (diff <= 2) points = 4;
-    else if (diff <= 7) points = 3;
-    else if (diff <= 12) points = 2;
+    else if (diff <= 6) points = 3;
+    else if (diff <= 10) points = 2;
 
-    if (this.state.turnTeam === "red") {
-      this.state.scores.red += points;
-    } else {
-      this.state.scores.blue += points;
-    }
+    this.state.score += points;
   }
 
   resetRound() {
+    if (this.state.currentRound >= this.state.totalRounds) {
+      this.state.phase = "gameover";
+      return;
+    }
+
+    this.state.currentRound++;
+    const card = this.getRandomCard();
     this.state.phase = "clue";
     this.state.targetPosition = Math.floor(Math.random() * 100);
     this.state.dialPosition = 50;
+    this.state.leftSpectrum = card.left;
+    this.state.rightSpectrum = card.right;
     this.state.clue = undefined;
-    this.state.turnTeam = this.state.turnTeam === "red" ? "blue" : "red";
+    this.state.sliderController = null;
     
-    // Simple psychic rotation: pick the next player in the same team
-    const teamPlayers = this.state.players.filter(p => p.team === this.state.turnTeam);
-    if (teamPlayers.length > 0) {
-        const currentPsychicIndex = teamPlayers.findIndex(p => p.role === 'psychic');
-        teamPlayers.forEach(p => p.role = 'guesser');
-        const nextPsychicIndex = (currentPsychicIndex + 1) % teamPlayers.length;
-        const nextPsychic = teamPlayers[nextPsychicIndex];
-        const pInState = this.state.players.find(p => p.id === nextPsychic.id);
-        if (pInState) pInState.role = 'psychic';
+    // Rotate psychic: (currentRound - 1) % players.length
+    this.state.players.forEach(p => p.role = 'guesser');
+    const nextPsychicIndex = (this.state.currentRound - 1) % this.state.players.length;
+    if (this.state.players[nextPsychicIndex]) {
+        this.state.players[nextPsychicIndex].role = 'psychic';
+    }
+  }
+
+  handleReturnToLobby(sender: Party.Connection) {
+    // Only creator can return to lobby
+    if (this.state.players.length > 0 && this.state.players[0].id === sender.id) {
+        this.state.phase = "lobby";
+        this.state.score = 0;
+        this.state.currentRound = 0;
+        this.state.totalRounds = 0;
+        this.state.dialPosition = 50;
+        this.state.players.forEach(p => p.role = 'guesser');
     }
   }
 }
